@@ -1,0 +1,184 @@
+#+TITLE:       Cours modèle de Von Neumann
+#+AUTHOR:      F. BEN MENA
+#+LANGUAGE:    fr
+#+DATE:        [2022-03-24 jeu.]
+#+OPTIONS: toc:1
+#+REVEAL_ROOT: https://cdn.jsdelivr.net/npm/reveal.js
+#+REVEAL_REVEAL_JS_VERSION: 4
+#+REVEAL_THEME: beige
+#+REVEAL_EXTRA_CSS: ./modifications.css
+
+* Architecture d'un ordinateur
+** Les composants
+- Processeur,
+- mémoire vive
+- mémoire persistente;
+- périphériques entrée/sortie;
+- périphériques réseau
+
+
+** Le transfert d'information entre les composantes du modèle de Von Neumann
+#+begin_src text
+|---------|         |-----|         |-----------------------------|
+| Mémoire |---------| CPU |---------| Périphériques entrée/sortie |
+|---------|         |-----|         |-----------------------------|
+             (bus)           (bus)
+#+end_src
+
+* La mémoire et le /CPU/
+** La mémoire
+La mémoire est constitué d'un tableau de mots.  Chaque mot est indiqué par une adresse.  Par exemple, pour une
+architecture 32 bits, la taille des mots mémoire est de $32$ bits et la taille du tableau est de $2^{32}$ adresses.  Par
+convention les adresses des mots mémoires sont écrites en *hexadécimal*.
+
+Par exemple, pour une architecture $16$ bits, le schéma de la mémoire serait:
+
+#+begin_src text
+memoire = [mot_0, mot_1, mot_2, ..., mot_FFFF] ## chaque mot étant lui-même formé sur 16-bits.
+#+end_src
+
+** Le /CPU/
+Le /CPU/ est comporte deux composantes: les registres d'une part et l'unité arithmétique et logique d'autre part (/UAL/
+que l'on traduit en anglais par /ALU/ pour arithmetic and logic unit).
+
+*** Les registres
+Les registres se déclinent en registres spécifiques et en registres généraux.  Les registres spécifiques sont:
+- le registre d'instruction /RI/ (en anglais: instruction register, abrégé en /RI/) qui contient l'instruction en cours
+  d'exécution;
+- le registre compteur ordinal (en anglais: program counter, abrégé en /PC/) qui contient l'adresse mémoire de la
+  prochaine instruction à exécuter.
+
+Le nombre des registres généraux est variable (dans les architectures des ordinateurs et des consoles de jeu des années
+80-90, on pouvait avoir un seul registre général, les architectures contemporaines comporte jusqu'à 32 ou 64 registres
+généraux).
+
+** Les instructions de transfert entre la mémoire et le /CPU/
+Dans toute la suite, et pour fixer les idées, on considère une architecture de $16$ bits que l'on va modéliser en
+supposant que le /CPU/ est muni de $8$ registres généraux: ~R1~, ~R2~, \ldots, ~R8~ (ceci est assez réaliste).
+
+On a deux instructions de transfert de l'information entre la mémoire et les registres généraux.
+- la *mnémonique* ~LOAD~ permet de transférer le contenu d'un mot mémoire vers un registre;
+- la *mnémonique* ~STORE~ permet de transférer le contenu d'un registre vers un mot mémoire.
+
+Par exemple:
+#+begin_src text
+LOAD R1,  0x30CC   ## ceci est l'instruction qui charge le contenu de l'adresse mémoire 0x30CC dans le registre R1.
+STORE R1, 0x30CC   ## ceci est l'instruction qui enregistre le contenu du registre R1 à l'adresse mémoire 0x30CC.
+#+end_src
+
+*** Remarque
+On a deux variantes des instructions précédentes.  Par exemple, on peut rencontrer les notations suivantes:
+#+begin_src text
+LOAD R1,  [0x30CC]
+STORE R1, [0x30CC]
+#+end_src
+
+Cela signifie que la machine va rechercher le mot contenu à l'adresse =0x30CC= et que le contenu de ce mot
+(par exemple supposons que le contenu de ce mot soit =0x1248=) va servir comme l'adresse pour le transfert
+des données.  Ce mode d'adressage est dit *indirect* par opposition au mode d'adressage précédent qui est lui
+qualifié de *direct*.
+
+À côté des instructions de transfert des données entre mémoire et registres généraux, on a des instructions
+de transfert entre registres généraux.  La *mnémonique* qui désigne ces instructions est ~MOVE~.  Par exemple:
+#+begin_src text
+MOVE R1, R2     ## transfère le contenu du registre R2 vers le registre R1.
+MOVE R1, 0x12DE ## transfère l'entier 0x12DE dans le registre R1.
+#+end_src
+
+
+*** Les instructions arithmétiques et logiques
+Les instructions arithmétiques et logiques sont réalisées à partir des registres généraux.  Plus exactement, les
+opérandes de ces opérations sont indiquées par un ou deux registres généraux et le résultat de l'opération est également
+placé dans un tel registre.  Le calcul est effectué au sein de processeur par cette entité que l'on nomme UAL (unité
+arithmétique et logique).  Il est important que le calcul ne consiste pas seulement à placer le résultat de l'opération
+dans le registre destination mais également à garder trace de certains indicateurs.  Par exemple, lorque la somme ou la
+différence de deux entiers est calculée, l'UAL garde trace des informations suivantes:
+- le résultat est nul;
+- le résultat est strictement négatif;
+- le résultat a produit un débordement de valeur.
+
+Dès lors, on peut considérer que ces informations sont enregistrées dans un régistre spécifique, que l'on va appeler
+le registre des *drapeaux* (flags en anglais).
+
+Les instructions pour l'addition et la soustraction sont associées aux *mnémoniques* ~ADD~ et ~SUB~.  Les instructions
+liées aux opérations logiques sont associées aux *mnémoniques* ~ADD~, ~OR~, ~XOR~ ~NOT~.  Par exemple:
+
+#+begin_src text
+ADD R1, R2, R3     ## additionne le contenu des registres R2 et R3 et place le résultat dans R1.
+SUB R1, R1, R2     ## effectue la soustraction entre les registres R1 et R2 et place le résultat dans R1.
+AND R1, R2, R3     ## effectue un "ET" logique bit-à-bit entre les registres R2 et R3 et place le résultat dans R1.
+OR  R1, R2, R3     ## effectue un "OU" logique bit-à-bit entre les registres R2 et R3 et place le résultat dans R1.
+XOR R1, R2, R3     ## effectue un "OU" exclusif bit-à-bit entre les registres R2 et R3 et place le résultat dans R1.
+NOT R1, R2         ## effectue un "NON" logique bit-à-bit du contenu du registre R2 et place le résultat dans R1.
+#+end_src
+
+*** L'instruction de comparaison et les branchements conditionnels
+L'instructions de comparaison est une instructions qui affecte le registre des *drapeaux* Etant donné deux entiers
+contenu dans des registres, il existe une instruction, dont la *mnémonique* est ~CMP~ qui compare ses deux entiers et
+tient à jour le registre des drapeaux.  En général, cette instruction est immédiatment suivie par une instruction de
+branchement conditionnel:
+
+- l'instructions dont la *mnémonique* est ~EQ~ effectue un saut à une nouvelle adresse si les entiers précédents sont
+  égaux.
+- l'instructions dont la *mnémonique* est ~NE~ effectue un saut à une nouvelle adresse si les entiers précédents sont
+  distincts;
+- l'instructions dont la *mnémonique* est ~GT~ effectue un saut à une nouvelle adresse si le premier entier est
+  strictement supérieur au second;
+- l'instructions dont la *mnémonique* est ~LT~ effectue un saut à une nouvelle adresse si le premier entier est
+  strictement inférieur au second.
+
+#+begin_src text
+CMP R1, 0x12DD     ## Compare le contenu du registre R1 et de l'entier 0x12DD.
+EQ 0xAA00          ## En cas d'égalité, la prochaine instruction à exécuter est à l'adresse 0xAA00.
+                   ## Dans ce cas, il faut actualiser le registre "PC" avec cette valeur.
+
+CMP R1, R2         ## Compare le contenu des registre R1 et R2.
+GT 0x12FF          ## Si le premier entier est strictement supérieur au second alors la prochaine
+                   ## instruction à exécuter est à l'adresse 0x12FF.  Dans ce cas, il faut actualiser
+                   ## le registre "PC" avec cette valeur.
+#+end_src
+
+*** L'instruction de saut inconditionnel et l'instruction de fin
+Il existe une instruction qui modifie l'adresse de la prochaine instruction à exécuter.  La mnémonique
+de cette instruction est ~B~.  Il existe une instruction qui met fin à l'exécution de la séquence courante,
+sa mnémonique est ~HALT~.
+
+Suite à des branchement conditionnels ou à des sauts, le changement de l'adresse de la prochaine instruction à exécuter
+(contenue dans le registre ordinal /PC/ suit une logique de *pile*, à chaque instruction d'arrêt ~HALT~, le mécanisme
+*dépile* en revenant à l'adresse avant saut.  Une zone de la mémoire doit être réservée à la gestion de la pile et à
+rien d'autre.  La position du pointeur de pile est indiquée par un registre spécifique appelé pointeur de pile
+(en anglais /stack pointer/ abrégé en /SP/).
+
+* Modélisation d'une architecture de Von Neumann en 16-bits simplifiée
+Pour comprendre ce qui se passe entre la mémoire, les registres dans le cours de l'exécution d'un programme, il
+est utile de mettre en place un /simulateur simplifié/, quitte à le perfectionner ensuite.
+
+#+begin_src python
+memoire = {}
+
+def lecture_memoire(memoire, adresse):
+    assert isinstance(memoire, dict)
+    assert isinstance(adresse, str) and len(adresse) == 6 and adresse.startswith("0x")
+    adresse = adresse.lower()
+    if adresse in memoire:
+        return memoire[adresse]
+    else:
+        return "0x0000"
+
+def ecriture_memoire(memoire, adresse, valeur):
+    assert isinstance(memoire, dict)
+    assert isinstance(adresse, str) and len(adresse) == 6 and adresse.startswith("0x")
+    assert isinstance(valeur, str) and len(valeur) == 6 and valeur.startswith("0x")
+    adresse = adresse.lower()
+    valeur = valeur.lower()
+    assert hex(int(adresse, base=16)) == adresse
+    assert hex(int(valeur, base=16)) == valeur
+    memoire[adresse]
+
+def affiche_memoire(memoire, limite=32):
+    compteur = 0
+    for adresse, valeur in memoire.items():
+        compteur = compteur + 1
+        if compteur <= limite:
+            print(adresse, ":", valeur)
+#+end_src

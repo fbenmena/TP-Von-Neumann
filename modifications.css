@@ -1,0 +1,16 @@
+.reveal {
+  font-family: var(--r-main-font);
+  font-size: 20px;
+  font-weight: normal;
+  color: var(--r-main-color);
+}
+
+
+.reveal section p {
+    font-weight: bold !important;
+    font-size: 1.1em !important;
+}
+
+.reveal section pre code {
+    font-size: 1.1em !important;
+}
