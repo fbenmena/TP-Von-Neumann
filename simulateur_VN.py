@@ -1,39 +1,65 @@
-# on représente la mémoire à l'aide d'un dictionnaire dont les clés sont les adresses (sur 16 bits)
+# On représente la mémoire à l'aide d'un dictionnaire dont les clés sont les adresses (sur 16 bits)
 # et les valeurs sont des entiers (sur 16 bits) représentées par des chaines de caractères qui donnent
 # leur valeur en hexadécimal.
 
+TAILLE_ARCHITECTURE = 2**16
+
 memoire = {}
+
 registres = {
     "R1": "0x0000",
     "R2": "0x0000",
     "R3": "0x0000",
     "R4": "0x0000",
-    "PC": "0x0000",
-    "IR": "0x0000",
-    "SP": "0x0000",
+    "PC": "0x0000",    # Le registre ordinal PC, qui contient l'adresse de la prochaine instruction à exécuter.
+    "IR": "0x0000",    # Le registre d'instruction qui contient le code binaire de l'instruction en cours d'exécution.
+    "SP": "0x0000",    # Le registre qui contient l'adresse du la pile.
+    "DRAPEAU_NUL" : 0, # Le dernier calcul a produit un résultat nul.
+    "DRAPEAU_NEG" : 0, # Le dernier calcul a produit un résultat négatif (strictement).
+    "DRAPEAU_DEB" : 0, # Le dernier calcul a produit un résultat avec débordement (overflow).
+    "DRAPEAU_CMP" : 0, # Le dernier calcul a consisté en une comparaison.
 }
 
 
+def initialiser_memoire(memoire):
+    memoire.clear()
+
+
+def initialiser_drapeaux(registres):
+    registres["DRAPEAU_NUL"] = 0
+    registres["DRAPEAU_NEG"] = 0
+    registres["DRAPEAU_DEB"] = 0
+    registres["DRAPEAU_CMP"] = 0
+
+
 def initialiser_registres(registres):
-    registres = {
-        "R1": "0x0000",
-        "R2": "0x0000",
-        "R3": "0x0000",
-        "R4": "0x0000",
-        "PC": "0x0000",
-        "IR": "0x0000",
-        "SP": "0x0000",
-    }
+    registres["R1"] = "0x0000"
+    registres["R2"] = "0x0000"
+    registres["R3"] = "0x0000"
+    registres["R4"] = "0x0000"
+    registres["PC"] = "0x0000"
+    registres["IR"] = "0x0000"
+    registres["SP"] = "0x0000"
+    initialiser_drapeaux(registres)
+
 
 def format_hex(entier):
-    assert isinstance(entier, int) and entier >= 0 and entier < 2**16
+    assert isinstance(entier, int) and entier >= 0 and entier < TAILLE_ARCHITECTURE
     return "0x" + format(entier, "04x")
+
+
+def convertir_en_entier(chaine):
+    assert isinstance(chaine, str) and (3 <= len(chaine) <= 6) and chaine.startswith("0x")
+    chaine = chaine.lower()
+    assert all(caractere in "0123456789abcdef" for caractere in chaine[2:])
+    return int(chaine, base=16)
 
 
 def lecture_memoire(memoire, adresse):
     assert isinstance(memoire, dict)
-    assert isinstance(adresse, str) and len(adresse) == 6 and adresse.startswith("0x")
-    adresse = adresse.lower()
+    # On doit s'assurer que le format de l'adresse est "normalisé".
+    adresse = format_hex(convertir_en_entier(adresse))
+
     if adresse in memoire:
         return memoire[adresse]
     else:
@@ -42,12 +68,12 @@ def lecture_memoire(memoire, adresse):
 
 def ecriture_memoire(memoire, adresse, valeur):
     assert isinstance(memoire, dict)
-    assert isinstance(adresse, str) and len(adresse) == 6 and adresse.startswith("0x")
-    assert isinstance(valeur, str) and len(valeur) == 6 and valeur.startswith("0x")
-    adresse = adresse.lower()
-    valeur = valeur.lower()
-    assert format_hex(int(adresse, base=16)) == adresse
-    assert format_hex(int(valeur, base=16)) == valeur
+    # On doit s'assurer que le format de l'adresse est "normalisé".
+    adresse = format_hex(convertir_en_entier(adresse))
+
+    # On doit s'assurer que le format de la valeur est "normalisé".
+    valeur = format_hex(convertir_en_entier(valeur))
+
     memoire[adresse] = valeur
 
 
@@ -120,11 +146,14 @@ def executer_instruction_LOAD(operandes, memoire, registres):
     assert isinstance(op2, str)
     crochet_gauche, crochet_droite = "[", "]"
 
-    if len(op2) == 6 and op2.startswith("0x"):
-        adresse = op2
+    if (3 <= len(op2) <= 6) and op2.startswith("0x"):
+        adresse = format_hex(convertir_en_entier(op2))
+
     elif op2.startswith(crochet_gauche) and op2.endswith(crochet_droite):
-        adresse_indirecte = op2.replace(crochet_gauche, "").replace(crochet_droite, "").strip()
+        op2 = op2.replace(crochet_gauche, "").replace(crochet_droite, "").strip()
+        adresse_indirecte = format_hex(convertir_en_entier(op2))
         adresse = lecture_memoire(memoire, adresse_indirecte)
+
     else:
         assert False
 
@@ -139,11 +168,14 @@ def executer_instruction_STORE(operandes, memoire, registres):
     assert isinstance(op2, str)
     crochet_gauche, crochet_droite = "[", "]"
 
-    if len(op2) == 6 and op2.startswith("0x"):
-        adresse = op2
+    if (3 <= len(op2) <= 6) and op2.startswith("0x"):
+        adresse = format_hex(convertir_en_entier(op2))
+
     elif op2.startswith(crochet_gauche) and op2.endswith(crochet_droite):
-        adresse_indirecte = op2.replace(crochet_gauche, "").replace(crochet_droite, "").strip()
+        op2 = op2.replace(crochet_gauche, "").replace(crochet_droite, "").strip()
+        adresse_indirecte = format_hex(convertir_en_entier(op2))
         adresse = lecture_memoire(memoire, adresse_indirecte)
+
     else:
         assert False
 
@@ -154,13 +186,17 @@ def executer_instruction_MOVE(operandes, registres):
     assert len(operandes) == 2
     op1, op2 = operandes
 
-    assert op1 in ["R1", "R2", "R3", "R4"]
+    assert op1 in ["R1", "R2", "R3", "R4"] and isinstance(op2, str)
+
     if op2 in ["R1", "R2", "R3", "R4"]:
         registres[op1] = registres[op2]
-    elif isinstance(op2, str) and len(op2) == 6 and op2.startswith("0x"):
-        op2 = op2.lower()
-        assert format_hex(int(op2, base=16)) == op2
+
+    elif (3 <= len(op2) <= 6) and op2.startswith("0x"):
+        op2 = format_hex(convertir_en_entier(op2))
         registres[op1] = op2
+
+    else:
+        assert False
 
 
 def executer_instruction_ADD(operandes, registres):
@@ -170,21 +206,23 @@ def executer_instruction_ADD(operandes, registres):
     assert op1 in ["R1", "R2", "R3", "R4"]
     assert op2 in ["R1", "R2", "R3", "R4"]
     assert op3 in ["R1", "R2", "R3", "R4"]
-    entier_1 = int(registres[op2], base=16)
-    entier_2 = int(registres[op3], base=16)
+    entier_1 = convertir_en_entier(registres[op2])
+    entier_2 = convertir_en_entier(registres[op3])
 
     retenue = False
     somme = entier_1 + entier_2
-    if somme >= 2**16:
-        somme = somme - 2**16
+    if somme >= TAILLE_ARCHITECTURE:
+        somme = somme - TAILLE_ARCHITECTURE
         retenue = True
 
     resultat = format_hex(somme)
     registres[op1] = resultat
 
-    # Il faut également modifier le registre drapeaux si le résultat est nul ou si
-    # la retenue est positionnée à `True`.  Il faut également tester si la somme est
-    # nulle.
+    initialiser_drapeaux(registres)
+    if resultat == "0x0000":
+        registres["DRAPEAU_NUL"] = 1
+    if retenue == True:
+        registres["DRAPEAU_DEB"] = 1
 
 
 def executer_instruction_SUB(operandes, registres):
@@ -194,8 +232,8 @@ def executer_instruction_SUB(operandes, registres):
     assert op1 in ["R1", "R2", "R3", "R4"]
     assert op2 in ["R1", "R2", "R3", "R4"]
     assert op3 in ["R1", "R2", "R3", "R4"]
-    entier_1 = int(registres[op2], base=16)
-    entier_2 = int(registres[op3], base=16)
+    entier_1 = convertir_en_entier(registres[op2])
+    entier_2 = convertir_en_entier(registres[op3])
 
     negatif = False
     difference = entier_1 - entier_2
@@ -206,8 +244,11 @@ def executer_instruction_SUB(operandes, registres):
     resultat = format_hex(difference)
     registres[op1] = resultat
 
-    # Il faut également modifier le registre drapeaux si le résultat est nul ou si
-    # la variable `négatif` est positionnée à `True`.
+    initialiser_drapeaux(registres)
+    if resultat == "0x0000":
+        registres["DRAPEAU_NUL"] = 1
+    if negatif == True:
+        registres["DRAPEAU_NEG"] = 1
 
 
 def executer_instruction_AND(operandes, registres):
@@ -217,13 +258,12 @@ def executer_instruction_AND(operandes, registres):
     assert op1 in ["R1", "R2", "R3", "R4"]
     assert op2 in ["R1", "R2", "R3", "R4"]
     assert op3 in ["R1", "R2", "R3", "R4"]
-    entier_1 = int(registres[op2], base=16)
-    entier_2 = int(registres[op3], base=16)
+    entier_1 = convertir_en_entier(registres[op2])
+    entier_2 = convertir_en_entier(registres[op3])
 
-    et_logique = entier_2 & entier_3
+    et_logique = entier_1 & entier_2
     resultat = format_hex(et_logique)
-
-    # Il faut également modifier le registre drapeaux si le résultat est nul.
+    registres[op1] = resultat
 
 
 def executer_instruction_OR(operandes, registres):
@@ -233,14 +273,12 @@ def executer_instruction_OR(operandes, registres):
     assert op1 in ["R1", "R2", "R3", "R4"]
     assert op2 in ["R1", "R2", "R3", "R4"]
     assert op3 in ["R1", "R2", "R3", "R4"]
-    entier_1 = int(registres[op2], base=16)
-    entier_2 = int(registres[op3], base=16)
+    entier_1 = convertir_en_entier(registres[op2])
+    entier_2 = convertir_en_entier(registres[op3])
 
-    ou_logique = entier_2 | entier_3
+    ou_logique = entier_1 | entier_2
     resultat = format_hex(ou_logique)
     registres[op1] = resultat
-
-    # Il faut également modifier le registre drapeaux si le résultat est nul.
 
 
 def executer_instruction_XOR(operandes, registres):
@@ -250,14 +288,12 @@ def executer_instruction_XOR(operandes, registres):
     assert op1 in ["R1", "R2", "R3", "R4"]
     assert op2 in ["R1", "R2", "R3", "R4"]
     assert op3 in ["R1", "R2", "R3", "R4"]
-    entier_1 = int(registres[op2], base=16)
-    entier_2 = int(registres[op3], base=16)
+    entier_1 = convertir_en_entier(registres[op2])
+    entier_2 = convertir_en_entier(registres[op3])
 
-    ou_exclusif = entier_2 ^ entier_3
+    ou_exclusif = entier_1 ^ entier_2
     resultat = format_hex(ou_exclusif)
     registres[op1] = resultat
-
-    # Il faut également modifier le registre drapeaux si le résultat est nul.
 
 
 def executer_instruction_NOT(operandes, registres):
@@ -266,13 +302,11 @@ def executer_instruction_NOT(operandes, registres):
 
     assert op1 in ["R1", "R2", "R3", "R4"]
     assert op2 in ["R1", "R2", "R3", "R4"]
+    entier_1 = convertir_en_entier(registres[op2])
 
-    entier_1 = int(registres[op2], base=16)
-    complement = 2**16 - 1 - entier_1
+    complement = TAILLE_ARCHITECTURE - 1 - entier_1
     resultat = format_hex(complement)
     registres[op1] = resultat
-
-    # Il faut également modifier le registre drapeaux si le résultat est nul.
 
 
 def executer_instruction_CMP(operandes, registres):
@@ -280,114 +314,103 @@ def executer_instruction_CMP(operandes, registres):
     op1, op2 = operandes
 
     if op1 in ["R1", "R2", "R3", "R4"]:
-        entier_1 = int(registres[op1], base=16)
-    elif isinstance(op1, str) and len(op1) == 6 and op1.startswith("0x"):
-        op1 = op1.lower()
-        assert format_hex(int(op1, base=16)) == op1
-        entier_1 = int(op1, base=16)
+        entier_1 = convertir_en_entier(registres[op1])
+    elif isinstance(op1, str) and (3 <= len(op1) <= 6) and op1.startswith("0x"):
+        entier_1 = convertir_en_entier(op1)
     else:
         assert False
 
     if op2 in ["R1", "R2", "R3", "R4"]:
-        entier_2 = int(registres[op2], base=16)
-    elif isinstance(op2, str) and len(op2) == 6 and op2.startswith("0x"):
-        op2 = op2.lower()
-        assert format_hex(int(op2, base=16)) == op2
-        entier_2 = int(op2, base=16)
+        entier_2 = convertir_en_entier(registres[op2])
+    elif isinstance(op2, str) and (3 <= len(op2) <= 6) and op2.startswith("0x"):
+        entier_2 = convertir_en_entier(op2)
     else:
         assert False
 
-    # Il faut également modifier le registre drapeaux pour tenir compte des informations
-    # suivantes: les entiers sont égaux, l'`entier_1` est strictement supérieur à l'`entier_2`
-    # ou si, inversement, l'`entier_1` est strictement inférieur à l'`entier_2`.
-
+    initialiser_drapeaux(registres)
+    if entier_1 == entier_2:
+        registres["DRAPEAU_CMP"] = "EQ"
+    elif entier_1 < entier_2:
+        registres["DRAPEAU_CMP"] = "LT"
+    else:
+        registres["DRAPEAU_CMP"] = "GT"
 
 
 def executer_instruction_EQ(operandes, memoire, registres):
     assert len(operandes) == 1
     op1 = operandes[0]
 
-    if not(isinstance(op1, str) and len(op1) == 6 and op1.startswith("0x")):
+    if not(isinstance(op1, str) and (3 <= len(op1) <= 6) and op1.startswith("0x")):
         assert False
 
-    if registres["Drapeau_EQ"]:
-        op1 = op1.lower()
-        assert format_hex(int(op1, base=16)) == op1
-        adressse = registres["SP"]
-        adresse_suivante = format_hex(int(adressse, base=16) + 1)
-        ecriture_memoire(memoire, adresse_suivante, registres["PC"])
-        registres["SP"] = adresse_suivante
-        registres["PC"] = op1
+    if registres["DRAPEAU_CMP"] == "EQ":
+        adresse_saut = format_hex(convertir_en_entier(op1))
+        adresse_pile = format_hex(int(registres["SP"], base=16) + 1)
+        ecriture_memoire(memoire, adresse_pile, registres["PC"])
+        registres["SP"] = adresse_pile
+        registres["PC"] = adresse_saut
 
 
 def executer_instruction_NE(operandes, memoire, registres):
     assert len(operandes) == 1
     op1 = operandes[0]
 
-    if not(isinstance(op1, str) and len(op1) == 6 and op1.startswith("0x")):
+    if not(isinstance(op1, str) and (3 <= len(op1) <= 6) and op1.startswith("0x")):
         assert False
 
-    if registres["Drapeau_NE"]:
-        op1 = op1.lower()
-        assert format_hex(int(op1, base=16)) == op1
-        adressse = registres["SP"]
-        adresse_suivante = format_hex(int(adressse, base=16) + 1)
-        ecriture_memoire(memoire, adresse_suivante, registres["PC"])
-        registres["SP"] = adresse_suivante
-        registres["PC"] = op1
+    if (registres["DRAPEAU_CMP"] == "LT") or (registres["DRAPEAU_CMP"] == "GT"):
+        adresse_saut = format_hex(convertir_en_entier(op1))
+        adresse_pile = format_hex(int(registres["SP"], base=16) + 1)
+        ecriture_memoire(memoire, adresse_pile, registres["PC"])
+        registres["SP"] = adresse_pile
+        registres["PC"] = adresse_saut
 
 
 def executer_instruction_GT(operandes, memoire, registres):
     assert len(operandes) == 1
     op1 = operandes[0]
 
-    if not(isinstance(op1, str) and len(op1) == 6 and op1.startswith("0x")):
+    if not(isinstance(op1, str) and (3 <= len(op1) <= 6) and op1.startswith("0x")):
         assert False
 
-    if registres["Drapeau_GT"]:
-        op1 = op1.lower()
-        assert format_hex(int(op1, base=16)) == op1
-        adressse = registres["SP"]
-        adresse_suivante = format_hex(int(adressse, base=16) + 1)
-        ecriture_memoire(memoire, adresse_suivante, registres["PC"])
-        registres["SP"] = adresse_suivante
-        registres["PC"] = op1
+    if registres["DRAPEAU_CMP"] == "GT":
+        adresse_saut = format_hex(convertir_en_entier(op1))
+        adresse_pile = format_hex(int(registres["SP"], base=16) + 1)
+        ecriture_memoire(memoire, adresse_pile, registres["PC"])
+        registres["SP"] = adresse_pile
+        registres["PC"] = adresse_saut
 
 
 def executer_instruction_LT(operandes, memoire, registres):
     assert len(operandes) == 1
     op1 = operandes[0]
 
-    if not(isinstance(op1, str) and len(op1) == 6 and op1.startswith("0x")):
+    if not(isinstance(op1, str) and (3 <= len(op1) <= 6) and op1.startswith("0x")):
         assert False
 
-    if registres["Drapeau_LT"]:
-        op1 = op1.lower()
-        assert format_hex(int(op1, base=16)) == op1
-        adressse = registres["SP"]
-        adresse_suivante = format_hex(int(adressse, base=16) + 1)
-        ecriture_memoire(memoire, adresse_suivante, registres["PC"])
-        registres["SP"] = adresse_suivante
-        registres["PC"] = op1
+    if registres["DRAPEAU_CMP"] == "LT":
+        adresse_saut = format_hex(convertir_en_entier(op1))
+        adresse_pile = format_hex(int(registres["SP"], base=16) + 1)
+        ecriture_memoire(memoire, adresse_pile, registres["PC"])
+        registres["SP"] = adresse_pile
+        registres["PC"] = adresse_saut
 
 
 def executer_instruction_B(operandes, memoire, registres):
     assert len(operandes) == 1
     op1 = operandes[0]
 
-    if not(isinstance(op1, str) and len(op1) == 6 and op1.startswith("0x")):
-        assert False
-
-    op1 = op1.lower()
-    assert format_hex(int(op1, base=16)) == op1
-    adressse = registres["SP"]
-    adresse_suivante = format_hex(int(adressse, base=16) + 1)
-    ecriture_memoire(memoire, adresse_suivante, registres["PC"])
-    registres["SP"] = adresse_suivante
-    registres["PC"] = op1
+    adresse_saut = format_hex(convertir_en_entier(op1))
+    adresse_pile = format_hex(int(registres["SP"], base=16) + 1)
+    ecriture_memoire(memoire, adresse_pile, registres["PC"])
+    registres["SP"] = adresse_pile
+    registres["PC"] = adresse_saut
 
 
 def executer_instruction_HALT(operandes, memoire, registres):
     assert len(operandes) == 0
+    adresse_pile = int(registres["SP"], base=16)
+    assert adresse_pile > 0
 
-    # à terminer...
+    registres["PC"] = lecture_memoire(memoire, registres["SP"])
+    registres["SP"] = format_hex(adresse_pile - 1)
