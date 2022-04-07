@@ -2,7 +2,12 @@
 # et les valeurs sont des entiers (sur 16 bits) représentées par des chaines de caractères qui donnent
 # leur valeur en hexadécimal.
 
+
+from math import copysign, frexp, isinf, isnan, trunc
+
+
 TAILLE_ARCHITECTURE = 2**16
+DEMI_TAILLE_ARCHITECTURE = 2**15
 
 memoire = {}
 
@@ -48,11 +53,90 @@ def format_hex(entier):
     return "0x" + format(entier, "04x")
 
 
+def format_hex_entier_signe(entier):
+    assert isinstance(entier, int) and -DEMI_TAILLE_ARCHITECTURE <= entier < DEMI_TAILLE_ARCHITECTURE
+    if entier >= 0:
+        return "0x" + format(entier, "04x")
+    else:
+        return "0x" + format(TAILLE_ARCHITECTURE + entier, "04x")
+
+
+def format_hex_flottant(flottant):
+    """
+    Cette fonction est un véritable "hack".
+    """
+
+    assert isinstance(flottant, float) and not(isnan(flottant) or isinf(flottant))
+    signe = copysign(1, flottant) < 0
+    m, e = frexp(flottant)
+    assert not (isnan(m) or isinf(m))
+
+    if e == 0 and m == 0:  # zero
+        return format_hex(0x8000) if signe else format_hex(0x0000)
+
+    f16 = trunc((2 * abs(m) - 1) * 2**10)  # On arrondi vers 0
+    e16 = e + 14
+
+    if e16 <= 0:  # forme particulière dite sous normale.
+        # f = (-1)**signe * fraction / 2**10 * 2**(-14)
+        f16 = int(2**14 * 2**10 * abs(flottant) + .5)
+        e16 = 0
+
+    elif e16 >= 0b11111:  # Trop grand...
+        e16 = 0b11111 # On tronque à la plus grande valeur qui a un sens, c'est brutal...
+
+    assert (0 <= f16 < 2**10) and (0b00001 <= e16 < 0b11111)
+    return format_hex(int(format(signe, "01b") + format(e16, "05b") + format(f16, "010b"), base=2))
+
+
 def convertir_en_entier(chaine):
     assert isinstance(chaine, str) and (3 <= len(chaine) <= 6) and chaine.startswith("0x")
     chaine = chaine.lower()
     assert all(caractere in "0123456789abcdef" for caractere in chaine[2:])
     return int(chaine, base=16)
+
+
+def convertir_en_entier_signe(chaine):
+    assert isinstance(chaine, str) and (len(chaine) == 6) and chaine.startswith("0x")
+    chaine = chaine.lower()
+    assert all(caractere in "0123456789abcdef" for caractere in chaine[2:])
+    valeur_non_signee = int(chaine, base=16)
+    ecriture_binaire = format(valeur_non_signee, "016b")
+    if ecriture_binaire[0] == "0":
+        return valeur_non_signee
+    else:
+        return  valeur_non_signee - TAILLE_ARCHITECTURE
+
+
+def convertir_en_flottat(chaine):
+    assert isinstance(chaine, str) and (len(chaine) == 6) and chaine.startswith("0x")
+    entier_n = convertir_en_entier(chaine)
+    """
+    Description du format d'un flottant à partir de sa représentation binaire sur 16 bits.
+
+    |--------------+------------------------+--------------------------------------|
+    | bit de signe | 5 bits pour l'exposant | 10 bits pour la partie fractionnaire |
+    |--------------+------------------------+--------------------------------------|
+
+    signe: '0' ou '1'
+    exposant: de '0 0000' à '1 1111'
+    fraction: de '00 0000 0000' à '11 1111 1111'.
+
+    Le flottant que l'on construit est:
+    (-1)**signe * (1 + fraction / 2**10) * 2**(exposant - 15)
+    """
+
+    signe = entier_n >> 15                  # On récupère, par décalage, le bit de signe.
+    exposant = (entier_n >> 10) & 0b011111  # On récupère, par décalage, les 5 bits à partir du second bit.
+    fraction = entier_n & (2**10 - 1)       # On récupère, par "et logique", les 10 derniers bits.
+
+    if exposant == 0:
+        if fraction == 0:
+            return -0.0 if signe else 0.0
+        else:
+            return (-1)**signe * fraction / 2**10 * 2**(-14)  # forme particulière dite sous normale.
+    else:
+        return (-1)**signe * (1 + fraction / 2**10) * 2**(exposant - 15)
 
 
 def lecture_memoire(memoire, adresse):
@@ -205,9 +289,17 @@ def executer_instruction_ADD(operandes, registres):
 
     assert op1 in ["R1", "R2", "R3", "R4"]
     assert op2 in ["R1", "R2", "R3", "R4"]
-    assert op3 in ["R1", "R2", "R3", "R4"]
-    entier_1 = convertir_en_entier(registres[op2])
-    entier_2 = convertir_en_entier(registres[op3])
+
+    if op3 in ["R1", "R2", "R3", "R4"]:
+        entier_1 = convertir_en_entier(registres[op2])
+        entier_2 = convertir_en_entier(registres[op3])
+
+    elif (3 <= len(op3) <= 6) and op3.startswith("0x"):
+        entier_1 = convertir_en_entier(registres[op2])
+        entier_2 = convertir_en_entier(op3)
+
+    else:
+        assert False
 
     retenue = False
     somme = entier_1 + entier_2
@@ -231,9 +323,17 @@ def executer_instruction_SUB(operandes, registres):
 
     assert op1 in ["R1", "R2", "R3", "R4"]
     assert op2 in ["R1", "R2", "R3", "R4"]
-    assert op3 in ["R1", "R2", "R3", "R4"]
-    entier_1 = convertir_en_entier(registres[op2])
-    entier_2 = convertir_en_entier(registres[op3])
+
+    if op3 in ["R1", "R2", "R3", "R4"]:
+        entier_1 = convertir_en_entier(registres[op2])
+        entier_2 = convertir_en_entier(registres[op3])
+
+    elif (3 <= len(op3) <= 6) and op3.startswith("0x"):
+        entier_1 = convertir_en_entier(registres[op2])
+        entier_2 = convertir_en_entier(op3)
+
+    else:
+        assert False
 
     negatif = False
     difference = entier_1 - entier_2
@@ -251,15 +351,113 @@ def executer_instruction_SUB(operandes, registres):
         registres["DRAPEAU_NEG"] = 1
 
 
+def executer_instruction_ADD_SIGNED(operandes, registres):
+    assert len(operandes) == 3
+    op1, op2, op3 = operandes
+
+    assert op1 in ["R1", "R2", "R3", "R4"]
+    assert op2 in ["R1", "R2", "R3", "R4"]
+
+    if op3 in ["R1", "R2", "R3", "R4"]:
+        entier_1 = convertir_en_entier_signe(registres[op2])
+        entier_2 = convertir_en_entier_signe(registres[op3])
+
+    elif (3 <= len(op3) <= 6) and op3.startswith("0x"):
+        entier_1 = convertir_en_entier_signe(registres[op2])
+        entier_2 = convertir_en_entier_signe(op3)
+
+    else:
+        assert False
+
+    negatif = False
+    debordement = False
+    somme = entier_1 + entier_2
+    if somme >= DEMI_TAILLE_ARCHITECTURE:
+        somme = somme - TAILLE_ARCHITECTURE
+        negatif = True
+        debordement = True
+    elif somme < -DEMI_TAILLE_ARCHITECTURE:
+        somme = somme + TAILLE_ARCHITECTURE
+        debordement = True
+    elif -DEMI_TAILLE_ARCHITECTURE <= somme < 0:
+        negatif = True
+    else:
+        pass
+
+    resultat = format_hex_entier_signe(somme)
+    registres[op1] = resultat
+
+    initialiser_drapeaux(registres)
+    if resultat == "0x0000":
+        registres["DRAPEAU_NUL"] = 1
+    if negatif == True:
+        registres["DRAPEAU_NEG"] = 1
+    if debordement == True:
+        registres["DRAPEAU_DEB"] = 1
+
+
+def executer_instruction_SUB_SIGNED(operandes, registres):
+    assert len(operandes) == 3
+    op1, op2, op3 = operandes
+
+    assert op1 in ["R1", "R2", "R3", "R4"]
+    assert op2 in ["R1", "R2", "R3", "R4"]
+
+    if op3 in ["R1", "R2", "R3", "R4"]:
+        entier_1 = convertir_en_entier_signe(registres[op2])
+        entier_2 = convertir_en_entier_signe(registres[op3])
+
+    elif (3 <= len(op3) <= 6) and op3.startswith("0x"):
+        entier_1 = convertir_en_entier_signe(registres[op2])
+        entier_2 = convertir_en_entier_signe(op3)
+
+    else:
+        assert False
+
+    negatif = False
+    debordement = False
+    difference = entier_1 - entier_2
+    if difference >= DEMI_TAILLE_ARCHITECTURE:
+        difference = difference - TAILLE_ARCHITECTURE
+        negatif = True
+        debordement = True
+    elif difference < -DEMI_TAILLE_ARCHITECTURE:
+        difference = difference + TAILLE_ARCHITECTURE
+        debordement = True
+    elif -DEMI_TAILLE_ARCHITECTURE <= difference < 0:
+        negatif = True
+    else:
+        pass
+
+    resultat = format_hex_entier_signe(difference)
+    registres[op1] = resultat
+
+    initialiser_drapeaux(registres)
+    if resultat == "0x0000":
+        registres["DRAPEAU_NUL"] = 1
+    if negatif == True:
+        registres["DRAPEAU_NEG"] = 1
+    if debordement == True:
+        registres["DRAPEAU_DEB"] = 1
+
+
 def executer_instruction_AND(operandes, registres):
     assert len(operandes) == 3
     op1, op2, op3 = operandes
 
     assert op1 in ["R1", "R2", "R3", "R4"]
     assert op2 in ["R1", "R2", "R3", "R4"]
-    assert op3 in ["R1", "R2", "R3", "R4"]
-    entier_1 = convertir_en_entier(registres[op2])
-    entier_2 = convertir_en_entier(registres[op3])
+
+    if op3 in ["R1", "R2", "R3", "R4"]:
+        entier_1 = convertir_en_entier(registres[op2])
+        entier_2 = convertir_en_entier(registres[op3])
+
+    elif (3 <= len(op3) <= 6) and op3.startswith("0x"):
+        entier_1 = convertir_en_entier(registres[op2])
+        entier_2 = convertir_en_entier(op3)
+
+    else:
+        assert False
 
     et_logique = entier_1 & entier_2
     resultat = format_hex(et_logique)
@@ -272,9 +470,17 @@ def executer_instruction_OR(operandes, registres):
 
     assert op1 in ["R1", "R2", "R3", "R4"]
     assert op2 in ["R1", "R2", "R3", "R4"]
-    assert op3 in ["R1", "R2", "R3", "R4"]
-    entier_1 = convertir_en_entier(registres[op2])
-    entier_2 = convertir_en_entier(registres[op3])
+
+    if op3 in ["R1", "R2", "R3", "R4"]:
+        entier_1 = convertir_en_entier(registres[op2])
+        entier_2 = convertir_en_entier(registres[op3])
+
+    elif (3 <= len(op3) <= 6) and op3.startswith("0x"):
+        entier_1 = convertir_en_entier(registres[op2])
+        entier_2 = convertir_en_entier(op3)
+
+    else:
+        assert False
 
     ou_logique = entier_1 | entier_2
     resultat = format_hex(ou_logique)
@@ -287,9 +493,18 @@ def executer_instruction_XOR(operandes, registres):
 
     assert op1 in ["R1", "R2", "R3", "R4"]
     assert op2 in ["R1", "R2", "R3", "R4"]
-    assert op3 in ["R1", "R2", "R3", "R4"]
-    entier_1 = convertir_en_entier(registres[op2])
-    entier_2 = convertir_en_entier(registres[op3])
+
+    if op3 in ["R1", "R2", "R3", "R4"]:
+        entier_1 = convertir_en_entier(registres[op2])
+        entier_2 = convertir_en_entier(registres[op3])
+
+    elif (3 <= len(op3) <= 6) and op3.startswith("0x"):
+        entier_1 = convertir_en_entier(registres[op2])
+        entier_2 = convertir_en_entier(op3)
+
+    else:
+        assert False
+
 
     ou_exclusif = entier_1 ^ entier_2
     resultat = format_hex(ou_exclusif)
@@ -301,8 +516,15 @@ def executer_instruction_NOT(operandes, registres):
     op1, op2 = operandes
 
     assert op1 in ["R1", "R2", "R3", "R4"]
-    assert op2 in ["R1", "R2", "R3", "R4"]
-    entier_1 = convertir_en_entier(registres[op2])
+
+    if op2 in ["R1", "R2", "R3", "R4"]:
+        entier_1 = convertir_en_entier(registres[op2])
+
+    elif (3 <= len(op2) <= 6) and op2.startswith("0x"):
+        entier_1 = convertir_en_entier(op2)
+
+    else:
+        assert False
 
     complement = TAILLE_ARCHITECTURE - 1 - entier_1
     resultat = format_hex(complement)

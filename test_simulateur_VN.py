@@ -8,6 +8,8 @@ from simulateur_VN import (memoire,
                            executer_instruction_MOVE,
                            executer_instruction_ADD,
                            executer_instruction_SUB,
+                           executer_instruction_ADD_SIGNED,
+                           executer_instruction_SUB_SIGNED,
                            executer_instruction_AND,
                            executer_instruction_OR,
                            executer_instruction_XOR,
@@ -44,7 +46,6 @@ def test_instruction_LOAD():
     ecriture_memoire(memoire, "0x3000", "0xAA00")
     executer_instruction_LOAD(["R1", "0x3000"], memoire, registres)
     assert registres["R1"] == "0xaa00" # Subtil!
-
 
 def test_instruction_STORE():
     registres["R1"] = "0xbb00"
@@ -98,6 +99,15 @@ def test_instruction_ADD_cas_4():
     assert registres["DRAPEAU_DEB"] == 1
 
 
+def test_instruction_ADD_cas_5():
+    registres["R1"] = "0xff00"
+    executer_instruction_ADD(["R1", "R1", "0x00ff"], registres)
+    assert registres["R1"] == "0xffff"
+    assert registres["DRAPEAU_NUL"] == 0
+    assert registres["DRAPEAU_NEG"] == 0
+    assert registres["DRAPEAU_DEB"] == 0
+
+
 def test_instruction_SUB_cas_1():
     registres["R1"] = "0xbb00"
     registres["R2"] = "0x0001"
@@ -128,6 +138,140 @@ def test_instruction_SUB_cas_3():
     assert registres["DRAPEAU_DEB"] == 0
 
 
+def test_instruction_SUB_cas_4():
+    registres["R1"] = "0xbb00"
+    executer_instruction_SUB(["R1", "R1", "0x0001"], registres)
+    assert registres["R1"] == "0xbaff"
+    assert registres["DRAPEAU_NUL"] == 0
+    assert registres["DRAPEAU_NEG"] == 0
+    assert registres["DRAPEAU_DEB"] == 0
+
+
+def test_instruction_ADD_SIGNED_cas_1():
+    registres["R1"] = "0x0064"  # En décimal signé, cet entier est égal à: 6*16 + 4 = 100
+    registres["R2"] = "0xff9c"  # En décimal signé, cet entier est négatif, sa valeur est obtenue par la
+                                # méthode du complément à 2**16, cela donne 65436 - 2**16 = -100.
+    executer_instruction_ADD_SIGNED(["R1", "R1", "R2"], registres)
+    assert registres["R1"] == "0x0000" # En décimal signé, cet entier est égal à 0.
+    assert registres["DRAPEAU_NUL"] == 1
+    assert registres["DRAPEAU_NEG"] == 0
+    assert registres["DRAPEAU_DEB"] == 0
+
+
+def test_instruction_ADD_SIGNED_cas_2():
+    registres["R1"] = "0x0065"  # En décimal signé, cet entier est égal à: 6*16 + 5 = 101
+    registres["R2"] = "0xff9c"  # En décimal signé, cet entier est négatif, sa valeur est obtenue par la
+                                # méthode du complément à 2**16, cela donne 65436 - 2**16 = -100.
+    executer_instruction_ADD_SIGNED(["R1", "R1", "R2"], registres)
+    assert registres["R1"] == "0x0001" # En décimal signé, cet entier est égal à +1.
+    assert registres["DRAPEAU_NUL"] == 0
+    assert registres["DRAPEAU_NEG"] == 0
+    assert registres["DRAPEAU_DEB"] == 0
+
+
+def test_instruction_ADD_SIGNED_cas_3():
+    registres["R1"] = "0x0063"  # En décimal signé, cet entier est égal à: 6*16 + 3 = 99
+    registres["R2"] = "0xff9c"  # En décimal signé, cet entier est négatif, sa valeur est obtenue par la
+                                # méthode du complément à 2**16, cela donne 65436 - 2**16 = -100.
+    executer_instruction_ADD_SIGNED(["R1", "R1", "R2"], registres)
+    assert registres["R1"] == "0xffff" # En décimal signé, cet entier est égal à -1.
+    assert registres["DRAPEAU_NUL"] == 0
+    assert registres["DRAPEAU_NEG"] == 1
+    assert registres["DRAPEAU_DEB"] == 0
+
+
+def test_instruction_ADD_SIGNED_cas_4():
+    registres["R1"] = "0x7fff"  # En décimal signé, cet entier est égal à:
+                                # 7*16**3 + 15*16**2 + 15*16 + 15 = 32767
+    registres["R2"] = "0x7fff"  # En décimal signé, cet entier est égal à: 32767
+    executer_instruction_ADD_SIGNED(["R1", "R1", "R2"], registres)
+    assert registres["R1"] == "0xfffe" # En décimal signé, cet entier est égal à -2.
+    assert registres["DRAPEAU_NUL"] == 0
+    assert registres["DRAPEAU_NEG"] == 1
+    assert registres["DRAPEAU_DEB"] == 1
+
+
+def test_instruction_ADD_SIGNED_cas_5():
+    registres["R1"] = "0xffff"  # En décimal signé, cet entier est égal à: (2**16 - 1) - 2**16 = -1.
+    registres["R2"] = "0xffff"  # En décimal signé, cet entier est égal à: (2**16 - 1) - 2**16 = -1.
+    executer_instruction_ADD_SIGNED(["R1", "R1", "R2"], registres)
+    assert registres["R1"] == "0xfffe" # En décimal signé, cet entier est égal à -2.
+    assert registres["DRAPEAU_NUL"] == 0
+    assert registres["DRAPEAU_NEG"] == 1
+    assert registres["DRAPEAU_DEB"] == 0
+
+
+def test_instruction_ADD_SIGNED_cas_6():
+    registres["R1"] = "0x7fff"  # En décimal signé, cet entier est égal à: 2**15 - 1 = 32767.
+    registres["R2"] = "0x7fff"  # En décimal signé, cet entier est égal à: 2**15 - 1 = 32767.
+    executer_instruction_ADD_SIGNED(["R1", "R1", "R2"], registres)
+    assert registres["R1"] == "0xfffe" # En décimal signé, cet entier est égal à -2.
+    assert registres["DRAPEAU_NUL"] == 0
+    assert registres["DRAPEAU_NEG"] == 1
+    assert registres["DRAPEAU_DEB"] == 1
+
+
+def test_instruction_SUB_SIGNED_cas_1():
+    registres["R1"] = "0x0064"  # En décimal signé, cet entier est égal à: 6*16 + 4 = 100
+    registres["R2"] = "0xff9c"  # En décimal signé, cet entier est négatif, sa valeur est obtenue par la
+                                # méthode du complément à 2**16, cela donne 65436 - 2**16 = -100.
+    executer_instruction_SUB_SIGNED(["R1", "R1", "R2"], registres)
+    assert registres["R1"] == "0x00c8" # En décimal signé, cet entier est égal à 200.
+    assert registres["DRAPEAU_NUL"] == 0
+    assert registres["DRAPEAU_NEG"] == 0
+    assert registres["DRAPEAU_DEB"] == 0
+
+
+def test_instruction_SUB_SIGNED_cas_2():
+    registres["R1"] = "0x0065"  # En décimal signé, cet entier est égal à: 6*16 + 5 = 101
+    registres["R2"] = "0x0064"  # En décimal signé, cet entier est égal à: 6*16 + 4 = 100
+    executer_instruction_SUB_SIGNED(["R1", "R1", "R2"], registres)
+    assert registres["R1"] == "0x0001" # En décimal signé, cet entier est égal à 1.
+    assert registres["DRAPEAU_NUL"] == 0
+    assert registres["DRAPEAU_NEG"] == 0
+    assert registres["DRAPEAU_DEB"] == 0
+
+
+def test_instruction_SUB_SIGNED_cas_3():
+    registres["R1"] = "0x0064"  # En décimal signé, cet entier est égal à: 6*16 + 4 = 100
+    registres["R2"] = "0x0065"  # En décimal signé, cet entier est égal à: 6*16 + 5 = 101
+    executer_instruction_SUB_SIGNED(["R1", "R1", "R2"], registres)
+    assert registres["R1"] == "0xffff" # En décimal signé, cet entier est égal à -1.
+    assert registres["DRAPEAU_NUL"] == 0
+    assert registres["DRAPEAU_NEG"] == 1
+    assert registres["DRAPEAU_DEB"] == 0
+
+
+def test_instruction_SUB_SIGNED_cas_4():
+    registres["R1"] = "0x7fff"  # En décimal signé, cet entier est égal à: 32767
+    registres["R2"] = "0xffff"  # En décimal signé, cet entier est égal à: -1
+    executer_instruction_SUB_SIGNED(["R1", "R1", "R2"], registres)
+    assert registres["R1"] == "0x8000" # En décimal signé, cet entier est égal à -32768.
+    assert registres["DRAPEAU_NUL"] == 0
+    assert registres["DRAPEAU_NEG"] == 1
+    assert registres["DRAPEAU_DEB"] == 1
+
+
+def test_instruction_SUB_SIGNED_cas_5():
+    registres["R1"] = "0xf000"  # En décimal signé, cet entier est égal à: -4096
+    registres["R2"] = "0x7999"  # En décimal signé, cet entier est égal à: 31129
+    executer_instruction_SUB_SIGNED(["R1", "R1", "R2"], registres)
+    assert registres["R1"] == "0x7667" # En décimal signé, cet entier est égal à 30311.
+    assert registres["DRAPEAU_NUL"] == 0
+    assert registres["DRAPEAU_NEG"] == 0
+    assert registres["DRAPEAU_DEB"] == 1
+
+
+def test_instruction_SUB_SIGNED_cas_6():
+    registres["R1"] = "0xf000"  # En décimal signé, cet entier est égal à: -4096
+    registres["R2"] = "0xf000"  # En décimal signé, cet entier est égal à: -4096
+    executer_instruction_SUB_SIGNED(["R1", "R1", "R2"], registres)
+    assert registres["R1"] == "0x0000" # En décimal signé, cet entier est égal à 0.
+    assert registres["DRAPEAU_NUL"] == 1
+    assert registres["DRAPEAU_NEG"] == 0
+    assert registres["DRAPEAU_DEB"] == 0
+
+
 def test_instruction_AND_cas_1():
     registres["R1"] = "0xbb00"         # en binaire "1011101100000000"
     registres["R2"] = "0x12ab"         # en binaire "0001001010101011"
@@ -140,6 +284,13 @@ def test_instruction_AND_cas_2():
     registres["R2"] = "0x44ab"         # en binaire "0100010010101011"
     executer_instruction_AND(["R1", "R1", "R2"], registres)
     assert registres["R1"] == "0x0000" # en binaire "0000000000000000"
+
+
+def test_instruction_AND_cas_3():
+    registres["R1"] = "0xff00"         # en binaire "1111111100000000"
+    op3             = "0x010f"         # en binaire "0000000100001111"
+    executer_instruction_AND(["R1", "R1", op3], registres)
+    assert registres["R1"] == "0x0100" # en binaire "0000000100000000"
 
 
 def test_instruction_OR_cas_1():
