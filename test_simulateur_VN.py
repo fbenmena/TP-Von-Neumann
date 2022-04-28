@@ -10,6 +10,7 @@ from simulateur_VN import (memoire,
                            executer_instruction_SUB,
                            executer_instruction_ADD_SIGNED,
                            executer_instruction_SUB_SIGNED,
+                           executer_instruction_MUL,
                            executer_instruction_AND,
                            executer_instruction_OR,
                            executer_instruction_XOR,
@@ -210,6 +211,23 @@ def test_instruction_ADD_SIGNED_cas_6():
     assert registres["DRAPEAU_NEG"] == 1
     assert registres["DRAPEAU_DEB"] == 1
 
+def test_instruction_MUL_cas_1():
+    registres["R1"] = "0x0000"
+    registres["R2"] = "0x0001"
+    executer_instruction_MUL(["R1", "R1", "R2"], registres)
+    assert registres["R1"] =="0x0000"
+    assert registres["DRAPEAU_NUL"] == 1
+    assert registres["DRAPEAU_NEG"] == 0
+    assert registres["DRAPEAU_DEB"] == 0
+
+def test_instruction_MUL_cas_2():
+    registres["R1"] = "0x2710"
+    registres["R2"] = "0x04d2"
+    executer_instruction_MUL(["R1", "R1", "R2"], registres)
+    assert registres["R1"] =="0x4b20"
+    assert registres["DRAPEAU_NUL"] == 0
+    assert registres["DRAPEAU_NEG"] == 0
+    assert registres["DRAPEAU_DEB"] == 1
 
 def test_instruction_SUB_SIGNED_cas_1():
     registres["R1"] = "0x0064"  # En décimal signé, cet entier est égal à: 6*16 + 4 = 100

@@ -1,4 +1,4 @@
-#+TITLE:       Complément sur le cours à props du modèle de Von Neumann
+#+TITLE:       Complément sur le cours à propos du modèle de Von Neumann
 #+AUTHOR:      F. BEN MENA
 #+LANGUAGE:    fr
 #+DATE:        [2022-03-24 jeu.]

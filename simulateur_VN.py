@@ -350,6 +350,24 @@ def executer_instruction_SUB(operandes, registres):
     if negatif == True:
         registres["DRAPEAU_NEG"] = 1
 
+def executer_instruction_DIV(operandes, registres):
+    assert len(operandes) == 3
+    op1, op2, op3 = operandes
+
+    assert op1 in ["R1", "R2", "R3", "R4"]
+    assert op2 in ["R1", "R2", "R3", "R4"]
+
+    if op3 in ["R1", "R2", "R3", "R4"]:
+        entier_1 = convertir_en_entier_signe(registres[op2])
+        entier_2 = convertir_en_entier_signe(registres[op3])
+
+    elif (3 <= len(op3) <= 6) and op3.startswith("0x"):
+        entier_1 = convertir_en_entier_signe(registres[op2])
+        entier_2 = convertir_en_entier_signe(op3)
+
+    else:
+        assert False
+
 
 def executer_instruction_ADD_SIGNED(operandes, registres):
     assert len(operandes) == 3
@@ -440,6 +458,37 @@ def executer_instruction_SUB_SIGNED(operandes, registres):
     if debordement == True:
         registres["DRAPEAU_DEB"] = 1
 
+def executer_instruction_MUL(operandes, registres):
+    assert len(operandes) == 3
+    op1, op2, op3 = operandes
+
+    assert op1 in ["R1", "R2", "R3", "R4"]
+    assert op2 in ["R1", "R2", "R3", "R4"]
+
+    if op3 in ["R1", "R2", "R3", "R4"]:
+        entier_1 = convertir_en_entier(registres[op2])
+        entier_2 = convertir_en_entier(registres[op3])
+
+    elif (3 <= len(op3) <= 6) and op3.startswith("0x"):
+        entier_1 = convertir_en_entier(registres[op2])
+        entier_2 = convertir_en_entier(op3)
+    else:
+        assert False
+
+    debordement = False
+    produit = entier_1 * entier_2
+    if produit >= TAILLE_ARCHITECTURE:
+        produit  = produit % TAILLE_ARCHITECTURE
+        debordement = True
+
+    resultat = format_hex(produit)
+    registres[op1] = resultat
+
+    initialiser_drapeaux(registres)
+    if resultat == "0x0000":
+        registres["DRAPEAU_NUL"] = 1
+    if debordement == True:
+        registres["DRAPEAU_DEB"] = 1
 
 def executer_instruction_AND(operandes, registres):
     assert len(operandes) == 3
