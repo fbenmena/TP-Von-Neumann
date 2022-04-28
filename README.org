@@ -1,0 +1,119 @@
+#+TITLE:       Complément sur le cours à props du modèle de Von Neumann
+#+AUTHOR:      F. BEN MENA
+#+LANGUAGE:    fr
+#+DATE:        [2022-03-24 jeu.]
+#+OPTIONS: toc:1
+#+REVEAL_ROOT: https://cdn.jsdelivr.net/npm/reveal.js
+#+REVEAL_REVEAL_JS_VERSION: 4
+#+REVEAL_THEME: beige
+#+REVEAL_EXTRA_CSS: ./modifications.css
+
+* Rappels
+
+** L'architecture du projet
+On dispose dans le fichier ~simulateur_VN.py~ d'un simulateur d'une mini architecture de Von Neumann.
+Il s'agit d'une architecture $16$ bits.  La mémoire est représentée par une liste de $2^16$ adresses
+de ~0x0000~ à ~0xFFFF~ et chaque adresse contient une donnée sur $16$ bits également représentée en
+notation hexadécimale.
+
+À côté de la mémoire, on dispose d'un dictionnaire pour les registres.  On a $4$ registres généraux
+et des registres pour la gestion des drapeaux qui simulent les effets produits par les calculs au
+sein de d'unité arithmétique et logique.
+
+** Le mini langage assembleur
+Un mini langage assembleur est executé par le simulateur.  Ce langage comporte des instructions
+qui sont labelisées par des *mnémoniques*.  Les voici:
+
+#+begin_src text
+LOAD, STORE, MOVE, ADD, SUB, MUL, DIV, REM, AND, OR, NOT, CMP, EQ, NE, LT, GT, B, HALT.
+#+end_src
+
+Le code /python/ du simulateur contient au moins une fonction par chacune de ces mnémoniques.  Par ailleurs,
+fonctions présentes dans ce code sont importées dans le fichier ~test_simulateur_VN.py~.  Puis des fonctions
+dont le nom commence par ~test_~ sont écrites dans ce dernier fichier.  Ces fonctions indiquent des tests de
+situations particulières pour lesquelles on veut évaluer le fonctionnement du simulateur.
+
+
+* Traduction de programme /python/ dans le code assembleur
+  :PROPERTIES:
+  :UNNUMBERED: t
+  :END:
+
+Dans cette partie, l'enjeu et de prendre en compte des programmes /python/ très simples et de les traduire
+dans le langage assembleur.  à travers des exercices, plusieurs situations sont ainsi passées au crible.
+
+
+** Exercice 1
+Traduire le code ci-dessous en assembleur (en partant de l'adresse mémoire "0x1000").
+
+#+begin_src python :exports code
+x = 3
+y = 5
+z = 8
+if x + y > z:
+    x = z - 4
+else:
+    x = z + 4
+#+end_src
+
+*** Correction
+|---------+--------------------+----------|
+| Adresse | Instruction        | Remarque |
+|---------+--------------------+----------|
+|  0x1000 | MOVE R1, 0x0003    |          |
+|  0x1001 | MOVE R2, 0x0005    |          |
+|  0x1002 | MOVE R3, 0x0008    |          |
+|  0x1003 | ADD R4, R1, R2     |          |
+|  0x1004 | CMP R4, R3         |          |
+|  0x1005 | GT 0x1008          |          |
+|  0x1006 | ADD R1, R3, 0x0004 |          |
+|  0x1007 | HALT               |          |
+|  0x1008 | SUB R1, R3, 0x0004 |          |
+|  0x1009 | HALT               |          |
+|---------+--------------------+----------|
+
+
+** Exercice 2
+Traduire le code ci-dessous en assembleur (en partant de l'adresse mémoire "0x1000").
+
+#+begin_src python :exports code
+i = 0
+j = 5
+while i < 10:
+    j = j + 1
+    i = i + 1
+#+end_src
+
+*** Correction
+
+
+** Exercice 3
+Traduire le code ci-dessous en assembleur (en partant de l'adresse mémoire "0x1000").
+
+#+begin_src python :exports code
+x = 4
+y = 2
+z = 2
+if x + y < 2*x + z:
+    x = x + 1
+else:
+    x = x - 1
+#+end_src
+
+*** Correction
+
+
+** Exercice 4
+Traduire le code ci-dessous en assembleur (en partant de l'adresse mémoire "0x1000").
+
+#+begin_src python :exports code
+i = 0
+j = 1
+while 2 * i < 10:
+    j = j + 1
+    while j < 5:
+        j = j + 1
+    i = i + 1
+#+end_src
+
+*** Correction
